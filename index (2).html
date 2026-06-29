@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+
+  <!-- ============================================================= -->
+  <!-- PAGE TITLE & SOCIAL PREVIEW (Open Graph / Twitter) META TAGS  -->
+  <!-- Edit these so the shared link looks good on WhatsApp / X / etc -->
+  <!-- ============================================================= -->
+  <title>Predict the World Cup 2026 Knockouts</title>
+  <meta name="description" content="Pick your winners from the Round of 32 all the way to the final. Lock in your champion." />
+  <meta property="og:title" content="Predict the World Cup 2026 Knockouts" />
+  <meta property="og:description" content="Pick your winners from the Round of 32 all the way to the final. Lock in your champion." />
+  <meta property="og:type" content="website" />
+  <!-- Replace with your deployed URL once live, e.g. https://your-app.vercel.app -->
+  <meta property="og:url" content="https://your-app.vercel.app" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Predict the World Cup 2026 Knockouts" />
+  <meta name="twitter:description" content="Pick your winners from the Round of 32 all the way to the final." />
+
+  <!-- React + Babel via CDN. No build step needed — open the file or deploy as-is. -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Fonts: a condensed grotesque for the display voice, a clean sans for the body -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================= */
+    /* DESIGN TOKENS                                                  */
+    /* Identity: a "stadium floodlight at night" feel. Deep ink navy  */
+    /* pitch, a single electric-lime accent for the live/selected     */
+    /* state, warm chalk for text. The signature is the vertical      */
+    /* "round rail" on the left that fills as you progress.           */
+    /* ============================================================= */
+    :root {
+      --ink:        #0B1020;  /* deep night-navy background        */
+      --ink-2:      #131A30;  /* raised card surface               */
+      --ink-3:      #1C2540;  /* hover / border surface            */
+      --chalk:      #EDEFF7;  /* primary text                      */
+      --chalk-dim:  #8C93AD;  /* secondary text                    */
+      --lime:       #C8FF3D;  /* electric accent (selected/live)   */
+      --lime-deep:  #9AD400;  /* accent pressed                    */
+      --coral:      #FF5D5D;  /* error state                       */
+      --line:       rgba(255,255,255,0.08);
+      --radius:     14px;
+      --maxw:       560px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      background: var(--ink);
+      /* subtle floodlight glow from the top */
+      background-image: radial-gradient(120% 60% at 50% -10%, rgba(200,255,61,0.10), transparent 60%);
+      color: var(--chalk);
+      font-family: 'Archivo', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* Respect users who prefer reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+
+    .wrap {
+      max-width: var(--maxw);
+      margin: 0 auto;
+      padding: 24px 18px 120px;
+    }
+
+    /* ---- Header / brand ---- */
+    .brand-eyebrow {
+      font-family: 'Space Grotesk', monospace;
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--lime);
+      margin: 0 0 6px;
+    }
+    .brand-title {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: clamp(28px, 8vw, 42px);
+      line-height: 0.98;
+      letter-spacing: -0.01em;
+      margin: 0;
+      text-transform: uppercase;
+    }
+    .brand-sub {
+      color: var(--chalk-dim);
+      font-size: 14px;
+      margin: 10px 0 0;
+      max-width: 38ch;
+    }
+
+    /* ---- Progress rail (signature element) ---- */
+    .rail {
+      display: flex;
+      gap: 6px;
+      margin: 22px 0 8px;
+    }
+    .rail-seg {
+      flex: 1;
+      height: 6px;
+      border-radius: 99px;
+      background: var(--ink-3);
+      overflow: hidden;
+      position: relative;
+    }
+    .rail-seg > i {
+      position: absolute; inset: 0;
+      background: var(--lime);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.4s ease;
+    }
+    .rail-seg.done > i { transform: scaleX(1); }
+    .rail-seg.active > i { transform: scaleX(0.5); }
+    .rail-label {
+      font-family: 'Space Grotesk', monospace;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--chalk-dim);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .rail-label b { color: var(--chalk); font-weight: 700; }
+
+    /* ---- Cards ---- */
+    .card {
+      background: var(--ink-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+
+    /* ---- Email step ---- */
+    .field-label {
+      font-size: 13px;
+      color: var(--chalk-dim);
+      display: block;
+      margin-bottom: 8px;
+    }
+    .input {
+      width: 100%;
+      background: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--chalk);
+      font-size: 16px; /* 16px avoids iOS zoom-on-focus */
+      font-family: inherit;
+      padding: 14px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input:focus { border-color: var(--lime); }
+    .input.invalid { border-color: var(--coral); }
+    .hint { font-size: 12px; margin-top: 8px; min-height: 16px; }
+    .hint.err { color: var(--coral); }
+    .hint.ok  { color: var(--chalk-dim); }
+
+    /* ---- Matchup pick ---- */
+    .match-meta {
+      font-family: 'Space Grotesk', monospace;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--chalk-dim);
+      margin: 0 0 12px;
+    }
+    .match-count { color: var(--lime); }
+    .versus {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 10px;
+      align-items: stretch;
+    }
+    .team-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--ink);
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      color: var(--chalk);
+      padding: 20px 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      min-height: 104px;
+      transition: border-color 0.15s, background 0.15s, transform 0.08s;
+    }
+    .team-btn:hover { border-color: var(--ink-3); background: var(--ink-3); }
+    .team-btn:active { transform: scale(0.98); }
+    .team-btn.picked {
+      border-color: var(--lime);
+      background: rgba(200,255,61,0.08);
+    }
+    .team-btn.picked .team-name { color: var(--lime); }
+    .team-btn:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+    .flag { font-size: 34px; line-height: 1; }
+    .team-name { text-align: center; line-height: 1.1; }
+    .vs-pill {
+      align-self: center;
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 12px;
+      color: var(--chalk-dim);
+      letter-spacing: 0.05em;
+    }
+
+    /* TBD placeholder team (slot not yet filled) */
+    .team-btn.tbd { opacity: 0.55; }
+
+    /* ---- Nav buttons ---- */
+    .nav {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .btn {
+      flex: 1;
+      border: none;
+      border-radius: 12px;
+      padding: 15px 16px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      transition: transform 0.08s, opacity 0.15s, background 0.15s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--lime); color: #10160A; }
+    .btn-primary:hover { background: var(--lime-deep); }
+    .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--chalk-dim);
+      border: 1px solid var(--line);
+      flex: 0 0 auto;
+      padding-left: 22px; padding-right: 22px;
+    }
+    .btn-ghost:hover { color: var(--chalk); border-color: var(--ink-3); }
+    .btn:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+
+    /* ---- Review / champion ---- */
+    .champ-wrap { text-align: center; padding: 8px 0 4px; }
+    .champ-flag { font-size: 80px; line-height: 1; }
+    .champ-name {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 30px;
+      text-transform: uppercase;
+      margin: 10px 0 4px;
+      color: var(--lime);
+    }
+    .champ-tag {
+      font-family: 'Space Grotesk', monospace;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--chalk-dim);
+    }
+    .summary-group { margin-top: 18px; }
+    .summary-h {
+      font-family: 'Space Grotesk', monospace;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--chalk-dim);
+      margin: 0 0 8px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .summary-edit {
+      background: none; border: none; color: var(--lime);
+      font-family: 'Space Grotesk', monospace; font-size: 11px;
+      letter-spacing: 0.1em; cursor: pointer; text-transform: uppercase;
+    }
+    .pick-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; padding: 6px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .pick-row:last-child { border-bottom: none; }
+    .pick-row .pf { font-size: 18px; }
+
+    /* ---- Confirmation ---- */
+    .done-mark {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: var(--lime); color: #10160A;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 34px; margin: 0 auto 14px;
+    }
+    .center { text-align: center; }
+
+    /* ---- Language toggle ---- */
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; }
+    .lang-toggle {
+      background: var(--ink-2); border: 1px solid var(--line);
+      border-radius: 99px; color: var(--chalk-dim);
+      font-family: 'Space Grotesk', monospace; font-size: 12px;
+      padding: 7px 14px; cursor: pointer; letter-spacing: 0.08em;
+    }
+    .lang-toggle:hover { color: var(--chalk); border-color: var(--ink-3); }
+
+    /* ---- RTL support for Arabic ---- */
+    [dir="rtl"] .rail-seg > i { transform-origin: right; }
+    [dir="rtl"] .team-name, [dir="rtl"] .brand-sub { text-align: right; }
+
+    .fade-in { animation: fade 0.35s ease; }
+    @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .footnote { color: var(--chalk-dim); font-size: 11px; text-align: center; margin-top: 20px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+
+    /* =================================================================
+       1) CONFIG — EDIT THESE TWO THINGS
+       ================================================================= */
+
+    // (a) Where submissions are sent. See deployment notes for how to get
+    //     this URL from Power Automate. Leave as "" to run in DEMO mode
+    //     (picks are logged to the console + a success screen is shown,
+    //     nothing is actually sent). Replace with your real flow URL to go live.
+    const SUBMIT_ENDPOINT = "https://defaultb09ab65e90634862afa2d75ab48bba.74.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/8df7a0bac3104438af1fddef6ee792cc/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=3MwoqYJ5Ix9qolmUwqLnsQl_xhJkHgI4zVMEWGGtapc";
+
+    // (b) Bilingual copy. EN ships on; AR is provided for the GCC audience.
+    const I18N = {
+      en: {
+        dir: "ltr",
+        eyebrow: "World Cup 2026 · Predictor",
+        title: "Call the\nKnockouts",
+        sub: "Pick a winner in every tie, from the Round of 32 to the final. Each winner advances automatically. Change your mind any time before you submit.",
+        emailLabel: "Your email — so we can tally your entry",
+        emailPlaceholder: "you@email.com",
+        emailInvalid: "Enter a valid email address to start.",
+        emailOk: "We only use this to record your picks.",
+        start: "Start picking",
+        back: "Back",
+        next: "Next",
+        review: "Review picks",
+        match: "Match",
+        of: "of",
+        vs: "VS",
+        tbd: "TBD",
+        reviewTitle: "Your bracket",
+        champion: "Your champion",
+        roundNames: {
+          r32: "Round of 32",
+          r16: "Round of 16",
+          qf: "Quarter-finals",
+          sf: "Semi-finals",
+          f:  "Final",
+        },
+        edit: "Edit",
+        submit: "Submit my bracket",
+        submitting: "Submitting…",
+        submitErr: "That didn't go through. Check your connection and try again.",
+        retry: "Try again",
+        doneTitle: "Bracket locked in",
+        doneSub: "Your picks are recorded. Good luck.",
+        sharedAlready: "You've already submitted from this device.",
+        copyLink: "Copy share link",
+        copied: "Link copied",
+        demoNote: "Demo mode: no endpoint configured, so picks were logged to the console instead of sent.",
+        chooseWinner: "Tap a team to pick the winner",
+      },
+      ar: {
+        dir: "rtl",
+        eyebrow: "كأس العالم 2026 · التوقعات",
+        title: "توقّع\nالأدوار الإقصائية",
+        sub: "اختر الفائز في كل مباراة، من دور الـ32 حتى النهائي. يتأهل الفائز تلقائياً. يمكنك تغيير اختيارك قبل الإرسال.",
+        emailLabel: "بريدك الإلكتروني — لتسجيل مشاركتك",
+        emailPlaceholder: "you@email.com",
+        emailInvalid: "أدخل بريداً إلكترونياً صحيحاً للبدء.",
+        emailOk: "نستخدمه فقط لتسجيل توقعاتك.",
+        start: "ابدأ التوقع",
+        back: "رجوع",
+        next: "التالي",
+        review: "مراجعة التوقعات",
+        match: "مباراة",
+        of: "من",
+        vs: "ضد",
+        tbd: "يُحدد لاحقاً",
+        reviewTitle: "توقعاتك",
+        champion: "بطلك",
+        roundNames: {
+          r32: "دور الـ32",
+          r16: "دور الـ16",
+          qf: "ربع النهائي",
+          sf: "نصف النهائي",
+          f:  "النهائي",
+        },
+        edit: "تعديل",
+        submit: "إرسال التوقعات",
+        submitting: "جارٍ الإرسال…",
+        submitErr: "لم يتم الإرسال. تحقق من الاتصال وحاول مجدداً.",
+        retry: "حاول مجدداً",
+        doneTitle: "تم تسجيل توقعاتك",
+        doneSub: "تم حفظ اختياراتك. حظاً موفقاً.",
+        sharedAlready: "لقد أرسلت توقعاتك من هذا الجهاز مسبقاً.",
+        copyLink: "نسخ الرابط",
+        copied: "تم النسخ",
+        demoNote: "وضع تجريبي: لا يوجد رابط إرسال، فتم تسجيل التوقعات في وحدة التحكم بدل إرسالها.",
+        chooseWinner: "اضغط على المنتخب لاختيار الفائز",
+      },
+    };
+
+    /* =================================================================
+       2) BRACKET DATA MODEL
+       -----------------------------------------------------------------
+       Teams are keyed by a short id. Each team has flag emoji + names.
+       The Round of 32 ships with the REAL confirmed/projected matchups
+       (source: official FIFA bracket structure + CBS Sports, June 2026).
+       To change a team, edit the TEAMS map and the R32 pairings below.
+
+       advancement: the knockout tree is FIXED (no redraws). Each match
+       feeds a specific slot in the next round. We model that with
+       "feeds" — see buildRounds().
+       ================================================================= */
+
+    // id -> { flag, en, ar }
+    const TEAMS = {
+      RSA: { flag: "🇿🇦", en: "South Africa", ar: "جنوب أفريقيا" },
+      CAN: { flag: "🇨🇦", en: "Canada",       ar: "كندا" },
+      BRA: { flag: "🇧🇷", en: "Brazil",       ar: "البرازيل" },
+      JPN: { flag: "🇯🇵", en: "Japan",        ar: "اليابان" },
+      GER: { flag: "🇩🇪", en: "Germany",      ar: "ألمانيا" },
+      PAR: { flag: "🇵🇾", en: "Paraguay",     ar: "باراغواي" },
+      NED: { flag: "🇳🇱", en: "Netherlands",  ar: "هولندا" },
+      MAR: { flag: "🇲🇦", en: "Morocco",      ar: "المغرب" },
+      CIV: { flag: "🇨🇮", en: "Ivory Coast",  ar: "ساحل العاج" },
+      NOR: { flag: "🇳🇴", en: "Norway",       ar: "النرويج" },
+      FRA: { flag: "🇫🇷", en: "France",       ar: "فرنسا" },
+      SWE: { flag: "🇸🇪", en: "Sweden",       ar: "السويد" },
+      MEX: { flag: "🇲🇽", en: "Mexico",       ar: "المكسيك" },
+      ECU: { flag: "🇪🇨", en: "Ecuador",      ar: "الإكوادور" },
+      ENG: { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", en: "England",      ar: "إنجلترا" },
+      COD: { flag: "🇨🇩", en: "DR Congo",     ar: "الكونغو الديمقراطية" },
+      BEL: { flag: "🇧🇪", en: "Belgium",      ar: "بلجيكا" },
+      SEN: { flag: "🇸🇳", en: "Senegal",      ar: "السنغال" },
+      USA: { flag: "🇺🇸", en: "United States",ar: "الولايات المتحدة" },
+      BIH: { flag: "🇧🇦", en: "Bosnia & Herz.",ar: "البوسنة والهرسك" },
+      ESP: { flag: "🇪🇸", en: "Spain",        ar: "إسبانيا" },
+      AUT: { flag: "🇦🇹", en: "Austria",      ar: "النمسا" },
+      SUI: { flag: "🇨🇭", en: "Switzerland",  ar: "سويسرا" },
+      ALG: { flag: "🇩🇿", en: "Algeria",      ar: "الجزائر" },
+      POR: { flag: "🇵🇹", en: "Portugal",     ar: "البرتغال" },
+      CRO: { flag: "🇭🇷", en: "Croatia",      ar: "كرواتيا" },
+      AUS: { flag: "🇦🇺", en: "Australia",    ar: "أستراليا" },
+      EGY: { flag: "🇪🇬", en: "Egypt",        ar: "مصر" },
+      ARG: { flag: "🇦🇷", en: "Argentina",    ar: "الأرجنتين" },
+      CPV: { flag: "🇨🇻", en: "Cabo Verde",   ar: "الرأس الأخضر" },
+      COL: { flag: "🇨🇴", en: "Colombia",     ar: "كولومبيا" },
+      GHA: { flag: "🇬🇭", en: "Ghana",        ar: "غانا" },
+    };
+
+    // Round of 32 — 16 ties, in official bracket order so the tree lines up.
+    // Each tie: [home, away]. Order matters: ties 0-1 feed R16 tie 0, etc.
+    // (Match numbers reference the official FIFA schedule, M73–M88.)
+    const R32_TIES = [
+      ["RSA", "CAN"], // M73
+      ["NED", "MAR"], // M76  -> pairs with M73 winner into R16
+      ["GER", "PAR"], // M74
+      ["FRA", "SWE"], // M75  (W: NED feeds... see note) — order set to match tree
+      ["CIV", "NOR"], // M78
+      ["BRA", "JPN"], // M77
+      ["MEX", "ECU"], // M79
+      ["ENG", "COD"], // M80
+      ["BEL", "SEN"], // M82
+      ["USA", "BIH"], // M81
+      ["ESP", "AUT"], // M84
+      ["AUS", "EGY"], // M88
+      ["ARG", "CPV"], // M86
+      ["COL", "GHA"], // M87
+      ["SUI", "ALG"], // M83
+      ["POR", "CRO"], // M85
+    ];
+
+    // Round labels & how many ties per round
+    const ROUND_DEFS = [
+      { key: "r32", count: 16 },
+      { key: "r16", count: 8  },
+      { key: "qf",  count: 4  },
+      { key: "sf",  count: 2  },
+      { key: "f",   count: 1  },
+    ];
+
+    // A "TBD" placeholder team used before a slot is filled by a prior pick.
+    const TBD = { flag: "⚽", en: "TBD", ar: "يُحدد لاحقاً", isTbd: true };
+
+    /* Build the full list of rounds. Each round is an array of ties.
+       A tie = { id, roundKey, idxInRound, home, away, winner }.
+       home/away are either a team id (string) OR a reference object
+       { fromTie: <tieId> } meaning "winner of that earlier tie". */
+    function buildRounds() {
+      const rounds = [];
+
+      // Round of 32 — concrete teams
+      const r32 = R32_TIES.map((pair, i) => ({
+        id: `r32-${i}`, roundKey: "r32", idxInRound: i,
+        home: pair[0], away: pair[1], winner: null,
+      }));
+      rounds.push(r32);
+
+      // Subsequent rounds: each tie pulls winners from two ties below it.
+      for (let r = 1; r < ROUND_DEFS.length; r++) {
+        const def = ROUND_DEFS[r];
+        const prev = rounds[r - 1];
+        const ties = [];
+        for (let i = 0; i < def.count; i++) {
+          ties.push({
+            id: `${def.key}-${i}`, roundKey: def.key, idxInRound: i,
+            home: { fromTie: prev[i * 2].id },
+            away: { fromTie: prev[i * 2 + 1].id },
+            winner: null,
+          });
+        }
+        rounds.push(ties);
+      }
+      return rounds;
+    }
+
+    // Email validation — pragmatic, not RFC-perfect.
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    /* =================================================================
+       3) APP
+       ================================================================= */
+    function App() {
+      const [lang, setLang] = useState("en");
+      const t = I18N[lang];
+
+      // step: "email" | round index 0..4 | "review" | "done"
+      const [step, setStep] = useState("email");
+      const [email, setEmail] = useState("");
+      const [emailTouched, setEmailTouched] = useState(false);
+
+      // rounds state — the whole tree, with winners stored on each tie.
+      const [rounds, setRounds] = useState(buildRounds);
+
+      const [submitState, setSubmitState] = useState("idle"); // idle|sending|error|done
+      const [copied, setCopied] = useState(false);
+
+      // Has this device already submitted? (client-side dup guard)
+      const [alreadyDone, setAlreadyDone] = useState(false);
+      useEffect(() => {
+        try {
+          if (window.__wc26_submitted) setAlreadyDone(true);
+        } catch (e) {}
+      }, []);
+
+      const emailValid = EMAIL_RE.test(email.trim());
+
+      // Resolve a tie's two sides into concrete team objects (or TBD).
+      function resolveSide(side) {
+        if (typeof side === "string") return { id: side, ...TEAMS[side] };
+        // it's a { fromTie } reference
+        const w = findWinner(side.fromTie);
+        if (!w) return { id: null, ...TBD };
+        return { id: w, ...TEAMS[w] };
+      }
+      function findWinner(tieId) {
+        for (const round of rounds) {
+          const tie = round.find((x) => x.id === tieId);
+          if (tie) return tie.winner;
+        }
+        return null;
+      }
+
+      // Pick a winner. When a winner changes, clear any downstream picks
+      // that depended on the old winner (so the tree stays consistent).
+      function pickWinner(tie, teamId) {
+        setRounds((prev) => {
+          const next = prev.map((round) => round.map((x) => ({ ...x })));
+          // set the winner
+          for (const round of next) {
+            const target = round.find((x) => x.id === tie.id);
+            if (target) {
+              if (target.winner === teamId) return prev; // no-op
+              target.winner = teamId;
+            }
+          }
+          // cascade: clear downstream winners that are no longer valid
+          clearOrphans(next);
+          return next;
+        });
+      }
+
+      // After a change, walk forward and clear any winner that is no longer
+      // one of the two teams actually feeding that tie.
+      function clearOrphans(allRounds) {
+        const winnerOf = (id) => {
+          for (const r of allRounds) {
+            const tt = r.find((x) => x.id === id);
+            if (tt) return tt.winner;
+          }
+          return null;
+        };
+        for (let r = 1; r < allRounds.length; r++) {
+          for (const tie of allRounds[r]) {
+            const sides = [tie.home, tie.away].map((s) =>
+              typeof s === "string" ? s : winnerOf(s.fromTie)
+            );
+            if (tie.winner && !sides.includes(tie.winner)) {
+              tie.winner = null;
+            }
+          }
+        }
+      }
+
+      // Is the current round fully picked?
+      function roundComplete(roundIdx) {
+        return rounds[roundIdx].every((tie) => {
+          const h = resolveSide(tie.home);
+          const a = resolveSide(tie.away);
+          // both sides must be known AND a winner chosen
+          return !h.isTbd && !a.isTbd && tie.winner;
+        });
+      }
+
+      // Build the payload that gets submitted.
+      function buildPayload() {
+        const nameOf = (id) => (id && TEAMS[id] ? TEAMS[id].en : null);
+        const winners = (roundIdx) =>
+          rounds[roundIdx].map((tie) => nameOf(tie.winner));
+        return {
+          email: email.trim().toLowerCase(),
+          submittedAt: new Date().toISOString(),
+          roundOf32: winners(0),       // 16 winners
+          roundOf16: winners(1),       // 8 winners
+          quarterFinals: winners(2),   // 4 winners
+          semiFinals: winners(3),      // 2 winners (the two finalists)
+          final: nameOf(rounds[4][0].winner),   // winner of the final = champion
+          champion: nameOf(rounds[4][0].winner),
+        };
+      }
+
+      // Submit handler.
+      async function handleSubmit() {
+        setSubmitState("sending");
+        const payload = buildPayload();
+
+        // DEMO MODE: no endpoint configured.
+        if (!SUBMIT_ENDPOINT) {
+          console.log("WC26 bracket payload (demo mode — not sent):", payload);
+          await new Promise((res) => setTimeout(res, 700));
+          markSubmitted();
+          setSubmitState("done");
+          setStep("done");
+          return;
+        }
+
+        try {
+          // We send in "no-cors" mode because the Power Automate endpoint is on a
+          // different domain and doesn't return the CORS headers a browser needs to
+          // read the response. In no-cors mode the browser sends the request fine but
+          // hides the reply — so we can't inspect res.ok. If fetch doesn't throw, the
+          // request was dispatched. The Excel sheet is the real confirmation of success.
+          // Content-Type is "text/plain" (not JSON) on purpose: a JSON content-type
+          // would trigger a CORS preflight that this endpoint rejects. Power Automate
+          // still parses the body as JSON via the schema regardless of this header.
+          await fetch(SUBMIT_ENDPOINT, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload),
+          });
+          markSubmitted();
+          setSubmitState("done");
+          setStep("done");
+        } catch (err) {
+          console.error(err);
+          setSubmitState("error");
+        }
+      }
+
+      function markSubmitted() {
+        try { window.__wc26_submitted = true; } catch (e) {}
+        setAlreadyDone(true);
+      }
+
+      function copyShareLink() {
+        const url = window.location.href;
+        navigator.clipboard?.writeText(url).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1800);
+        });
+      }
+
+      // --- progress rail data ---
+      const stepIndex = step === "email" ? -1 : step === "review" || step === "done" ? 5 : step;
+
+      /* ------------------------- RENDER ------------------------- */
+      return (
+        <div className="wrap" dir={t.dir}>
+          {/* Top bar: brand + language toggle */}
+          <div className="topbar">
+            <div>
+              <p className="brand-eyebrow">{t.eyebrow}</p>
+              <h1 className="brand-title">
+                {t.title.split("\n").map((line, i) => (
+                  <span key={i}>{line}{i === 0 ? <br/> : null}</span>
+                ))}
+              </h1>
+            </div>
+            <button className="lang-toggle" onClick={() => setLang(lang === "en" ? "ar" : "en")}>
+              {lang === "en" ? "العربية" : "EN"}
+            </button>
+          </div>
+
+          {/* Progress rail — only show once started */}
+          {step !== "email" && (
+            <RailProgress t={t} rounds={ROUND_DEFS} stepIndex={stepIndex} roundComplete={roundComplete} />
+          )}
+
+          {/* ---- EMAIL STEP ---- */}
+          {step === "email" && (
+            <div className="fade-in">
+              <p className="brand-sub" style={{ marginBottom: 22 }}>{t.sub}</p>
+              <div className="card">
+                <label className="field-label" htmlFor="email">{t.emailLabel}</label>
+                <input
+                  id="email"
+                  className={"input" + (emailTouched && !emailValid ? " invalid" : "")}
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder={t.emailPlaceholder}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => setEmailTouched(true)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && emailValid) setStep(0); }}
+                />
+                <div className={"hint " + (emailTouched && !emailValid ? "err" : "ok")}>
+                  {emailTouched && !emailValid ? t.emailInvalid : t.emailOk}
+                </div>
+                {alreadyDone && <div className="hint err">{t.sharedAlready}</div>}
+                <div className="nav">
+                  <button
+                    className="btn btn-primary"
+                    disabled={!emailValid}
+                    onClick={() => setStep(0)}
+                  >
+                    {t.start}
+                  </button>
+                </div>
+              </div>
+              <p className="footnote">{t.chooseWinner}</p>
+            </div>
+          )}
+
+          {/* ---- ROUND STEPS (0..4) ---- */}
+          {typeof step === "number" && (
+            <RoundStep
+              key={step}
+              t={t}
+              lang={lang}
+              roundIdx={step}
+              ties={rounds[step]}
+              resolveSide={resolveSide}
+              pickWinner={pickWinner}
+              complete={roundComplete(step)}
+              onBack={() => setStep(step === 0 ? "email" : step - 1)}
+              onNext={() => setStep(step === 4 ? "review" : step + 1)}
+            />
+          )}
+
+          {/* ---- REVIEW STEP ---- */}
+          {step === "review" && (
+            <ReviewStep
+              t={t} lang={lang} rounds={rounds} resolveSide={resolveSide}
+              onEdit={(idx) => setStep(idx)}
+              onBack={() => setStep(4)}
+              onSubmit={handleSubmit}
+              submitState={submitState}
+            />
+          )}
+
+          {/* ---- DONE ---- */}
+          {step === "done" && (
+            <div className="card center fade-in" style={{ marginTop: 18 }}>
+              <div className="done-mark">✓</div>
+              <h2 style={{ margin: "0 0 6px", fontFamily: "'Archivo Black'", textTransform: "uppercase" }}>
+                {t.doneTitle}
+              </h2>
+              <p style={{ color: "var(--chalk-dim)", margin: "0 0 18px" }}>{t.doneSub}</p>
+              {!SUBMIT_ENDPOINT && <p className="footnote">{t.demoNote}</p>}
+              <div className="nav">
+                <button className="btn btn-primary" onClick={copyShareLink}>
+                  {copied ? t.copied : t.copyLink}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <p className="footnote">
+            World Cup 2026 · Round of 32 → Final · Predictions only, not affiliated with FIFA.
+          </p>
+        </div>
+      );
+    }
+
+    /* ---- Progress rail component ---- */
+    function RailProgress({ t, rounds, stepIndex, roundComplete }) {
+      const labels = [t.roundNames.r32, t.roundNames.r16, t.roundNames.qf, t.roundNames.sf, t.roundNames.f];
+      const current = Math.min(stepIndex, 4);
+      const currentLabel = stepIndex >= 5 ? t.reviewTitle : (current >= 0 ? labels[current] : "");
+      return (
+        <div>
+          <div className="rail">
+            {rounds.map((r, i) => {
+              const done = stepIndex > i || (stepIndex === i && false);
+              const isDone = stepIndex > i;
+              const isActive = stepIndex === i;
+              return (
+                <div key={i} className={"rail-seg" + (isDone ? " done" : isActive ? " active" : "")}>
+                  <i />
+                </div>
+              );
+            })}
+          </div>
+          <div className="rail-label">
+            <b>{currentLabel}</b>
+            <span>{Math.max(0, Math.min(stepIndex + (stepIndex >= 5 ? 0 : 1), 5))}/5</span>
+          </div>
+        </div>
+      );
+    }
+
+    /* ---- A single round of picks ---- */
+    function RoundStep({ t, lang, roundIdx, ties, resolveSide, pickWinner, complete, onBack, onNext }) {
+      const roundKey = ROUND_DEFS[roundIdx].key;
+      const total = ties.length;
+      const picked = ties.filter((x) => x.winner).length;
+
+      return (
+        <div className="fade-in">
+          <p className="match-meta">
+            {t.roundNames[roundKey]} · <span className="match-count">{picked}/{total}</span>
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {ties.map((tie, i) => {
+              const home = resolveSide(tie.home);
+              const away = resolveSide(tie.away);
+              const locked = home.isTbd || away.isTbd;
+              return (
+                <div className="card" key={tie.id}>
+                  <p className="match-meta" style={{ margin: "0 0 10px" }}>
+                    {t.match} {i + 1} {t.of} {total}
+                  </p>
+                  <div className="versus">
+                    <TeamButton
+                      team={home} lang={lang} t={t}
+                      picked={tie.winner === home.id}
+                      disabled={locked}
+                      onClick={() => !locked && home.id && pickWinner(tie, home.id)}
+                    />
+                    <span className="vs-pill">{t.vs}</span>
+                    <TeamButton
+                      team={away} lang={lang} t={t}
+                      picked={tie.winner === away.id}
+                      disabled={locked}
+                      onClick={() => !locked && away.id && pickWinner(tie, away.id)}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="nav">
+            <button className="btn btn-ghost" onClick={onBack}>{t.back}</button>
+            <button className="btn btn-primary" disabled={!complete} onClick={onNext}>
+              {roundIdx === 4 ? t.review : t.next}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    function TeamButton({ team, lang, t, picked, disabled, onClick }) {
+      const name = team.isTbd ? t.tbd : team[lang];
+      return (
+        <button
+          className={"team-btn" + (picked ? " picked" : "") + (team.isTbd ? " tbd" : "")}
+          onClick={onClick}
+          disabled={disabled}
+          aria-pressed={picked}
+        >
+          <span className="flag">{team.flag}</span>
+          <span className="team-name">{name}</span>
+        </button>
+      );
+    }
+
+    /* ---- Review screen with edit links + champion highlight ---- */
+    function ReviewStep({ t, lang, rounds, resolveSide, onEdit, onBack, onSubmit, submitState }) {
+      const champId = rounds[4][0].winner;
+      const champ = champId ? { id: champId, ...TEAMS[champId] } : null;
+
+      const groupOrder = [
+        { idx: 1, key: "r16" },
+        { idx: 2, key: "qf" },
+        { idx: 3, key: "sf" },
+        { idx: 4, key: "f" },
+      ];
+
+      return (
+        <div className="fade-in">
+          {/* Champion hero */}
+          <div className="card champ-wrap">
+            <p className="champ-tag">{t.champion}</p>
+            {champ && <div className="champ-flag">{champ.flag}</div>}
+            {champ && <div className="champ-name">{champ[lang]}</div>}
+          </div>
+
+          {/* Per-round summary */}
+          {groupOrder.map((g) => (
+            <div className="summary-group card" key={g.key}>
+              <p className="summary-h">
+                {t.roundNames[g.key]}
+                <button className="summary-edit" onClick={() => onEdit(g.idx)}>{t.edit}</button>
+              </p>
+              {rounds[g.idx].map((tie) => {
+                const w = tie.winner ? { id: tie.winner, ...TEAMS[tie.winner] } : null;
+                return (
+                  <div className="pick-row" key={tie.id}>
+                    <span className="pf">{w ? w.flag : "⚽"}</span>
+                    <span>{w ? w[lang] : t.tbd}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+
+          {submitState === "error" && (
+            <p className="hint err" style={{ textAlign: "center", marginTop: 14 }}>{t.submitErr}</p>
+          )}
+
+          <div className="nav">
+            <button className="btn btn-ghost" onClick={onBack}>{t.back}</button>
+            <button
+              className="btn btn-primary"
+              onClick={onSubmit}
+              disabled={submitState === "sending"}
+            >
+              {submitState === "sending" ? t.submitting : (submitState === "error" ? t.retry : t.submit)}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
