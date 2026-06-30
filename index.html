@@ -9,15 +9,15 @@
   <!-- Edit these so the shared link looks good on WhatsApp / X / etc -->
   <!-- ============================================================= -->
   <title>Predict the World Cup 2026 Knockouts</title>
-  <meta name="description" content="Pick your winners from the Round of 32 all the way to the final. Lock in your champion." />
+  <meta name="description" content="Pick your winners from the quarter-finals all the way to the final. Lock in your champion." />
   <meta property="og:title" content="Predict the World Cup 2026 Knockouts" />
-  <meta property="og:description" content="Pick your winners from the Round of 32 all the way to the final. Lock in your champion." />
+  <meta property="og:description" content="Pick your winners from the quarter-finals all the way to the final. Lock in your champion." />
   <meta property="og:type" content="website" />
   <!-- Replace with your deployed URL once live, e.g. https://your-app.vercel.app -->
   <meta property="og:url" content="https://your-app.vercel.app" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Predict the World Cup 2026 Knockouts" />
-  <meta name="twitter:description" content="Pick your winners from the Round of 32 all the way to the final." />
+  <meta name="twitter:description" content="Pick your winners from the quarter-finals all the way to the final." />
 
   <!-- React + Babel via CDN. No build step needed — open the file or deploy as-is. -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -348,7 +348,7 @@
         dir: "ltr",
         eyebrow: "World Cup 2026 · Predictor",
         title: "Call the\nKnockouts",
-        sub: "Pick a winner in every tie, from the Round of 32 to the final. Each winner advances automatically. Change your mind any time before you submit.",
+        sub: "Pick a winner in every tie, from the quarter-finals to the final. Each winner advances automatically. Change your mind any time before you submit.",
         emailLabel: "Your email — so we can tally your entry",
         emailPlaceholder: "you@email.com",
         emailInvalid: "Enter a valid email address to start.",
@@ -387,7 +387,7 @@
         dir: "rtl",
         eyebrow: "كأس العالم 2026 · التوقعات",
         title: "توقّع\nالأدوار الإقصائية",
-        sub: "اختر الفائز في كل مباراة، من دور الـ32 حتى النهائي. يتأهل الفائز تلقائياً. يمكنك تغيير اختيارك قبل الإرسال.",
+        sub: "اختر الفائز في كل مباراة، من ربع النهائي حتى النهائي. يتأهل الفائز تلقائياً. يمكنك تغيير اختيارك قبل الإرسال.",
         emailLabel: "بريدك الإلكتروني — لتسجيل مشاركتك",
         emailPlaceholder: "you@email.com",
         emailInvalid: "أدخل بريداً إلكترونياً صحيحاً للبدء.",
@@ -428,9 +428,8 @@
        2) BRACKET DATA MODEL
        -----------------------------------------------------------------
        Teams are keyed by a short id. Each team has flag emoji + names.
-       The Round of 32 ships with the REAL confirmed/projected matchups
-       (source: official FIFA bracket structure + CBS Sports, June 2026).
-       To change a team, edit the TEAMS map and the R32 pairings below.
+       The game starts at the Quarter-finals with 8 placeholder teams.
+       To change a team, edit the TEAMS map and the QF_TIES pairings below.
 
        advancement: the knockout tree is FIXED (no redraws). Each match
        feeds a specific slot in the next round. We model that with
