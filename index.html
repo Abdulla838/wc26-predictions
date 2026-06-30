@@ -337,7 +337,11 @@
     //     this URL from Power Automate. Leave as "" to run in DEMO mode
     //     (picks are logged to the console + a success screen is shown,
     //     nothing is actually sent). Replace with your real flow URL to go live.
+    // Your Cloudflare Worker URL — paste it here after you deploy the Worker.
+    // It looks like: https://wc26-collector.YOUR-NAME.workers.dev
+    // Leave "" to run in demo mode (picks logged to console, nothing sent).
     const SUBMIT_ENDPOINT = "https://wc26-collector.abdullaalmarzooqi838.workers.dev";
+
     // (b) Bilingual copy. EN ships on; AR is provided for the GCC audience.
     const I18N = {
       en: {
@@ -469,35 +473,21 @@
       GHA: { flag: "🇬🇭", en: "Ghana",        ar: "غانا" },
     };
 
-    // Round of 32 — 16 ties, in official bracket order so the tree lines up.
-    // Each tie: [home, away]. Order matters: ties 0-1 feed R16 tie 0, etc.
-    // (Match numbers reference the official FIFA schedule, M73–M88.)
-    const R32_TIES = [
-      ["RSA", "CAN"], // M73
-      ["NED", "MAR"], // M76  -> pairs with M73 winner into R16
-      ["GER", "PAR"], // M74
-      ["FRA", "SWE"], // M75  (W: NED feeds... see note) — order set to match tree
-      ["CIV", "NOR"], // M78
-      ["BRA", "JPN"], // M77
-      ["MEX", "ECU"], // M79
-      ["ENG", "COD"], // M80
-      ["BEL", "SEN"], // M82
-      ["USA", "BIH"], // M81
-      ["ESP", "AUT"], // M84
-      ["AUS", "EGY"], // M88
-      ["ARG", "CPV"], // M86
-      ["COL", "GHA"], // M87
-      ["SUI", "ALG"], // M83
-      ["POR", "CRO"], // M85
+    // Quarter-finals — 4 ties, the starting round. These 8 teams are placeholders
+    // for now; swap them after the Round of 16 is decided by editing the pairs below.
+    // Each tie: [home, away]. Order matters: ties 0-1 feed SF tie 0, ties 2-3 feed SF tie 1.
+    const QF_TIES = [
+      ["FRA", "MAR"], // QF1 — top-left quarter
+      ["ESP", "SEN"], // QF2 — bottom-left quarter   (QF1 & QF2 feed SF1)
+      ["BRA", "ENG"], // QF3 — top-right quarter
+      ["ARG", "COL"], // QF4 — bottom-right quarter   (QF3 & QF4 feed SF2)
     ];
 
-    // Round labels & how many ties per round
+    // Round labels & how many ties per round. Game now starts at the quarter-finals.
     const ROUND_DEFS = [
-      { key: "r32", count: 16 },
-      { key: "r16", count: 8  },
-      { key: "qf",  count: 4  },
-      { key: "sf",  count: 2  },
-      { key: "f",   count: 1  },
+      { key: "qf", count: 4 },
+      { key: "sf", count: 2 },
+      { key: "f",  count: 1 },
     ];
 
     // A "TBD" placeholder team used before a slot is filled by a prior pick.
@@ -510,12 +500,12 @@
     function buildRounds() {
       const rounds = [];
 
-      // Round of 32 — concrete teams
-      const r32 = R32_TIES.map((pair, i) => ({
-        id: `r32-${i}`, roundKey: "r32", idxInRound: i,
+      // Quarter-finals — concrete teams (the starting round)
+      const qf = QF_TIES.map((pair, i) => ({
+        id: `qf-${i}`, roundKey: "qf", idxInRound: i,
         home: pair[0], away: pair[1], winner: null,
       }));
-      rounds.push(r32);
+      rounds.push(qf);
 
       // Subsequent rounds: each tie pulls winners from two ties below it.
       for (let r = 1; r < ROUND_DEFS.length; r++) {
@@ -641,12 +631,10 @@
         return {
           email: email.trim().toLowerCase(),
           submittedAt: new Date().toISOString(),
-          roundOf32: winners(0),       // 16 winners
-          roundOf16: winners(1),       // 8 winners
-          quarterFinals: winners(2),   // 4 winners
-          semiFinals: winners(3),      // 2 winners (the two finalists)
-          final: nameOf(rounds[4][0].winner),   // winner of the final = champion
-          champion: nameOf(rounds[4][0].winner),
+          quarterFinals: winners(0),   // 4 winners
+          semiFinals: winners(1),      // 2 winners (the two finalists)
+          final: nameOf(rounds[2][0].winner),   // winner of the final = champion
+          champion: nameOf(rounds[2][0].winner),
         };
       }
 
@@ -666,20 +654,15 @@
         }
 
         try {
-          // We send in "no-cors" mode because the Power Automate endpoint is on a
-          // different domain and doesn't return the CORS headers a browser needs to
-          // read the response. In no-cors mode the browser sends the request fine but
-          // hides the reply — so we can't inspect res.ok. If fetch doesn't throw, the
-          // request was dispatched. The Excel sheet is the real confirmation of success.
-          // Content-Type is "text/plain" (not JSON) on purpose: a JSON content-type
-          // would trigger a CORS preflight that this endpoint rejects. Power Automate
-          // still parses the body as JSON via the schema regardless of this header.
-          await fetch(SUBMIT_ENDPOINT, {
+          // The Cloudflare Worker returns proper CORS headers, so we can use a
+          // normal request and actually read whether it succeeded. The Worker
+          // accepts JSON and forwards it to GitHub behind the scenes.
+          const res = await fetch(SUBMIT_ENDPOINT, {
             method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
+          if (!res.ok) throw new Error("Bad status " + res.status);
           markSubmitted();
           setSubmitState("done");
           setStep("done");
@@ -702,8 +685,13 @@
         });
       }
 
+      // Total number of rounds (now 3: QF, SF, Final). Used so the UI adapts
+      // automatically if the number of rounds ever changes.
+      const LAST_ROUND = ROUND_DEFS.length - 1;     // index of the final round
+      const REVIEW_INDEX = ROUND_DEFS.length;       // step index treated as "review"
+
       // --- progress rail data ---
-      const stepIndex = step === "email" ? -1 : step === "review" || step === "done" ? 5 : step;
+      const stepIndex = step === "email" ? -1 : step === "review" || step === "done" ? REVIEW_INDEX : step;
 
       /* ------------------------- RENDER ------------------------- */
       return (
@@ -776,7 +764,8 @@
               pickWinner={pickWinner}
               complete={roundComplete(step)}
               onBack={() => setStep(step === 0 ? "email" : step - 1)}
-              onNext={() => setStep(step === 4 ? "review" : step + 1)}
+              onNext={() => setStep(step === LAST_ROUND ? "review" : step + 1)}
+              isLastRound={step === LAST_ROUND}
             />
           )}
 
@@ -785,7 +774,7 @@
             <ReviewStep
               t={t} lang={lang} rounds={rounds} resolveSide={resolveSide}
               onEdit={(idx) => setStep(idx)}
-              onBack={() => setStep(4)}
+              onBack={() => setStep(LAST_ROUND)}
               onSubmit={handleSubmit}
               submitState={submitState}
             />
@@ -809,7 +798,7 @@
           )}
 
           <p className="footnote">
-            World Cup 2026 · Round of 32 → Final · Predictions only, not affiliated with FIFA.
+            World Cup 2026 · Quarter-finals → Final · Predictions only, not affiliated with FIFA.
           </p>
         </div>
       );
@@ -817,14 +806,18 @@
 
     /* ---- Progress rail component ---- */
     function RailProgress({ t, rounds, stepIndex, roundComplete }) {
-      const labels = [t.roundNames.r32, t.roundNames.r16, t.roundNames.qf, t.roundNames.sf, t.roundNames.f];
-      const current = Math.min(stepIndex, 4);
-      const currentLabel = stepIndex >= 5 ? t.reviewTitle : (current >= 0 ? labels[current] : "");
+      // Build labels from the actual rounds in play (QF, SF, Final).
+      const labels = rounds.map((r) => t.roundNames[r.key]);
+      const n = rounds.length;                    // number of rounds
+      const reviewIndex = n;                       // step index for review/done
+      const current = Math.min(stepIndex, n - 1);
+      const currentLabel = stepIndex >= reviewIndex ? t.reviewTitle : (current >= 0 ? labels[current] : "");
+      // Position counter: rounds are 1..n, review counts as n.
+      const counter = Math.max(0, Math.min(stepIndex >= reviewIndex ? n : stepIndex + 1, n));
       return (
         <div>
           <div className="rail">
             {rounds.map((r, i) => {
-              const done = stepIndex > i || (stepIndex === i && false);
               const isDone = stepIndex > i;
               const isActive = stepIndex === i;
               return (
@@ -836,14 +829,14 @@
           </div>
           <div className="rail-label">
             <b>{currentLabel}</b>
-            <span>{Math.max(0, Math.min(stepIndex + (stepIndex >= 5 ? 0 : 1), 5))}/5</span>
+            <span>{counter}/{n}</span>
           </div>
         </div>
       );
     }
 
     /* ---- A single round of picks ---- */
-    function RoundStep({ t, lang, roundIdx, ties, resolveSide, pickWinner, complete, onBack, onNext }) {
+    function RoundStep({ t, lang, roundIdx, ties, resolveSide, pickWinner, complete, onBack, onNext, isLastRound }) {
       const roundKey = ROUND_DEFS[roundIdx].key;
       const total = ties.length;
       const picked = ties.filter((x) => x.winner).length;
@@ -887,7 +880,7 @@
           <div className="nav">
             <button className="btn btn-ghost" onClick={onBack}>{t.back}</button>
             <button className="btn btn-primary" disabled={!complete} onClick={onNext}>
-              {roundIdx === 4 ? t.review : t.next}
+              {isLastRound ? t.review : t.next}
             </button>
           </div>
         </div>
@@ -911,15 +904,12 @@
 
     /* ---- Review screen with edit links + champion highlight ---- */
     function ReviewStep({ t, lang, rounds, resolveSide, onEdit, onBack, onSubmit, submitState }) {
-      const champId = rounds[4][0].winner;
+      // Champion = winner of the final (the last round, single tie).
+      const champId = rounds[rounds.length - 1][0].winner;
       const champ = champId ? { id: champId, ...TEAMS[champId] } : null;
 
-      const groupOrder = [
-        { idx: 1, key: "r16" },
-        { idx: 2, key: "qf" },
-        { idx: 3, key: "sf" },
-        { idx: 4, key: "f" },
-      ];
+      // Summarise every round in play, in order (QF, SF, Final).
+      const groupOrder = rounds.map((round, idx) => ({ idx, key: round[0].roundKey }));
 
       return (
         <div className="fade-in">
