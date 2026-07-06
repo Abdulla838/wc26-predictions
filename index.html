@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
@@ -47,9 +47,32 @@
       --lime-deep:  #9AD400;  /* accent pressed                    */
       --coral:      #FF5D5D;  /* error state                       */
       --line:       rgba(255,255,255,0.08);
+      --glow:       rgba(200,255,61,0.10); /* top floodlight glow  */
+      --pick-bg:    rgba(200,255,61,0.08); /* selected team tint   */
       --radius:     14px;
       --maxw:       560px;
     }
+
+    /* Light theme — same identity, inverted for daylight. Applied when the
+       <html> element has data-theme="light". The accent deepens slightly so
+       the lime stays readable on pale surfaces, and text buttons use dark ink. */
+    html[data-theme="light"] {
+      --ink:        #F4F6FB;  /* soft off-white page background     */
+      --ink-2:      #FFFFFF;  /* raised card surface (white)        */
+      --ink-3:      #E7EBF3;  /* hover / border surface             */
+      --chalk:      #141A2B;  /* primary text (dark ink)            */
+      --chalk-dim:  #5C6480;  /* secondary text                    */
+      --lime:       #6FA300;  /* deepened lime for contrast on light*/
+      --lime-deep:  #557E00;  /* accent pressed                    */
+      --coral:      #D63B3B;  /* error state                       */
+      --line:       rgba(20,26,43,0.12);
+      --glow:       rgba(111,163,0,0.10);
+      --pick-bg:    rgba(111,163,0,0.10);
+    }
+    /* On light theme, primary buttons read better with white text on the
+       deepened green instead of dark-on-lime. */
+    html[data-theme="light"] .btn-primary { color: #FFFFFF; }
+    html[data-theme="light"] .team-btn.picked .team-name { color: var(--lime); }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -57,8 +80,8 @@
 
     body {
       background: var(--ink);
-      /* subtle floodlight glow from the top */
-      background-image: radial-gradient(120% 60% at 50% -10%, rgba(200,255,61,0.10), transparent 60%);
+      /* subtle floodlight glow from the top (themeable) */
+      background-image: radial-gradient(120% 60% at 50% -10%, var(--glow), transparent 60%);
       color: var(--chalk);
       font-family: 'Archivo', system-ui, -apple-system, sans-serif;
       -webkit-font-smoothing: antialiased;
@@ -206,7 +229,7 @@
     .team-btn:active { transform: scale(0.98); }
     .team-btn.picked {
       border-color: var(--lime);
-      background: rgba(200,255,61,0.08);
+      background: var(--pick-bg);
     }
     .team-btn.picked .team-name { color: var(--lime); }
     .team-btn:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
@@ -305,6 +328,7 @@
 
     /* ---- Language toggle ---- */
     .topbar { display: flex; justify-content: space-between; align-items: flex-start; }
+    .toggle-group { display: flex; gap: 8px; flex-shrink: 0; }
     .lang-toggle {
       background: var(--ink-2); border: 1px solid var(--line);
       border-radius: 99px; color: var(--chalk-dim);
@@ -532,6 +556,13 @@
        ================================================================= */
     function App() {
       const [lang, setLang] = useState("en");
+
+      // Theme: "light" (default) or "dark". Applied to <html> so the CSS
+      // variable overrides take effect. Remembered for the session only.
+      const [theme, setTheme] = useState("light");
+      useEffect(() => {
+        document.documentElement.setAttribute("data-theme", theme);
+      }, [theme]);
       const t = I18N[lang];
 
       // step: "email" | round index 0..4 | "review" | "done"
@@ -705,9 +736,18 @@
                 ))}
               </h1>
             </div>
-            <button className="lang-toggle" onClick={() => setLang(lang === "en" ? "ar" : "en")}>
-              {lang === "en" ? "العربية" : "EN"}
-            </button>
+            <div className="toggle-group">
+              <button
+                className="lang-toggle"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                aria-label="Toggle light or dark theme"
+              >
+                {theme === "dark" ? "☀️" : "🌙"}
+              </button>
+              <button className="lang-toggle" onClick={() => setLang(lang === "en" ? "ar" : "en")}>
+                {lang === "en" ? "العربية" : "EN"}
+              </button>
+            </div>
           </div>
 
           {/* Progress rail — only show once started */}
